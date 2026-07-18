@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#132a35">
+  <meta name="description" content="Prévisions météo multimodèles et ensembleistes, de 10 à 46 jours.">
+  <title>Horizon météo</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css?v=26">
+</head>
+<body>
+  <a class="skip-link" href="#contenu">Aller au bulletin</a>
+
+  <header class="topbar">
+    <div class="brand" aria-label="Horizon météo">
+      <img src="icon.svg" alt="" width="38" height="38">
+      <div>
+        <strong>Horizon météo</strong>
+        <span>Le consensus, puis l’incertitude</span>
+      </div>
+    </div>
+    <span class="personal-badge">Usage personnel</span>
+  </header>
+
+  <main id="contenu">
+    <section class="location-panel" aria-labelledby="location-title">
+      <div class="location-copy">
+        <p class="eyebrow">Nouveau bulletin</p>
+        <h1 id="location-title">Où regardons-nous le temps&nbsp;?</h1>
+        <p>Utilisez votre position ou choisissez une ville. Aucune position n’est enregistrée ni envoyée ailleurs qu’aux services météo.</p>
+      </div>
+
+      <div class="location-actions">
+        <button id="gps-button" class="primary-button" type="button">
+          <span aria-hidden="true">◎</span> Utiliser ma position
+        </button>
+        <div class="presets" aria-label="Lieux favoris">
+          <button class="chip preset-button" type="button" data-name="Paris" data-lat="48.8566" data-lon="2.3522">Paris</button>
+          <button class="chip preset-button" type="button" data-name="Sarrebourg" data-lat="48.7356" data-lon="7.0572">Sarrebourg</button>
+          <button class="chip preset-button" type="button" data-name="Saint-Nicolas-de-Port" data-lat="48.62857" data-lon="6.29668">Saint-Nicolas-de-Port</button>
+          <button class="chip preset-button" type="button" data-name="Nancy" data-lat="48.68439" data-lon="6.18496">Nancy</button>
+        </div>
+      </div>
+
+      <form id="city-form" class="city-search" role="search">
+        <label for="city-input">Ou rechercher une commune</label>
+        <div class="search-row">
+          <input id="city-input" name="city" type="search" autocomplete="off" placeholder="Ex. Saint-Nicolas…" required>
+          <button type="submit">Rechercher</button>
+        </div>
+        <div id="search-results" class="search-results" aria-live="polite"></div>
+      </form>
+      <p id="global-status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <div id="bulletin" hidden>
+      <section class="bulletin-heading">
+        <div>
+          <p class="eyebrow">Bulletin personnel</p>
+          <h2 id="place-heading">—</h2>
+          <p id="updated-at" class="muted"></p>
+        </div>
+        <div class="bulletin-actions">
+          <button id="refresh-button" type="button">Actualiser</button>
+          <button id="copy-button" type="button">Copier le bulletin</button>
+          <button id="mail-button" class="primary-button" type="button">Ouvrir dans ma messagerie</button>
+        </div>
+      </section>
+
+      <section aria-labelledby="overview-title">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">En un coup d’œil</p>
+            <h2 id="overview-title">Les signaux à surveiller</h2>
+          </div>
+          <span id="season-label" class="season-label"></span>
+        </div>
+        <div id="signal-cards" class="signal-grid"></div>
+        <div id="headline-summary" class="headline-summary"></div>
+        <div id="ensemble-alert" class="ensemble-alert" hidden></div>
+      </section>
+
+      <section id="environment-section" aria-labelledby="environment-title">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Santé environnementale · données locales</p>
+            <h2 id="environment-title">Pollens et qualité de l’air</h2>
+          </div>
+          <span class="season-label">Prévision horaire</span>
+        </div>
+        <p class="section-intro">Ouvrez un volet pour consulter les concentrations près du lieu choisi et leur évolution durant les prochaines 24 heures.</p>
+        <div class="environment-panels">
+          <details id="pollen-panel" class="environment-panel">
+            <summary>
+              <span class="environment-summary-title"><span aria-hidden="true">🌿</span><span><strong>Pollens</strong><small>Aulne, bouleau, graminées, armoise, olivier, ambroisie</small></span></span>
+              <span id="pollen-summary" class="environment-summary-value">Chargement…</span>
+            </summary>
+            <div id="pollen-content" class="environment-content"><p class="loading-line">Chargement des pollens…</p></div>
+          </details>
+          <details id="air-quality-panel" class="environment-panel">
+            <summary>
+              <span class="environment-summary-title"><span aria-hidden="true">◉</span><span><strong>Qualité de l’air</strong><small>Indice européen, PM2,5, PM10, NO₂ et ozone</small></span></span>
+              <span id="air-quality-summary" class="environment-summary-value">Chargement…</span>
+            </summary>
+            <div id="air-quality-content" class="environment-content"><p class="loading-line">Chargement de la qualité de l’air…</p></div>
+          </details>
+        </div>
+      </section>
+
+      <section id="france-map-section" aria-labelledby="france-map-title" hidden>
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Vue nationale · demain</p>
+            <h2 id="france-map-title">La France en deux températures</h2>
+          </div>
+          <span class="season-label">Météo-France · grille indicative</span>
+        </div>
+        <p class="section-intro">Deux cartes issues d’une grille Météo-France densifiée puis interpolée en continu. Le rendu montre plus finement les gradients régionaux, sans prétendre fournir une prévision à l’échelle d’une commune.</p>
+        <div class="map-load-row">
+          <button id="france-map-button" type="button">Afficher les cartes nationales</button>
+          <span>Chargement à la demande pour préserver le quota météo.</span>
+        </div>
+        <div id="france-map-loading" class="loading-line" hidden></div>
+        <div id="france-maps" class="france-maps"></div>
+      </section>
+
+      <section aria-labelledby="consensus-title">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">J0 à J10</p>
+            <h2 id="consensus-title">Consensus multimodèle</h2>
+          </div>
+          <button class="info-button" type="button" data-dialog="confidence-dialog" aria-haspopup="dialog">Comment lire la confiance&nbsp;?</button>
+        </div>
+        <p class="section-intro">La synthèse est une moyenne lorsque les modèles convergent. Quand ils s’écartent, la plage complète est mise en avant.</p>
+        <div id="temperature-chart" class="chart-wrap"></div>
+        <div class="table-wrap">
+          <table id="consensus-table">
+            <caption class="sr-only">Prévisions de consensus sur dix jours</caption>
+            <thead>
+              <tr>
+                <th scope="col">Jour</th>
+                <th scope="col">T. min</th>
+                <th scope="col">T. max</th>
+                <th scope="col">Pluie</th>
+                <th scope="col">Confiance</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="models-title">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Comparer les scénarios</p>
+            <h2 id="models-title">Prévisions par modèle</h2>
+          </div>
+        </div>
+        <p class="model-icon-legend" aria-label="Légende des repères des modèles"><span><span aria-hidden="true">🌍</span> le drapeau indique l’origine du centre</span><span><span aria-hidden="true">🤖</span> prévision fondée sur l’IA</span></p>
+        <div id="model-tabs" class="tab-list" role="tablist" aria-label="Modèles déterministes"></div>
+        <div id="model-detail" class="model-detail"></div>
+      </section>
+
+      <section class="google-lab" aria-labelledby="google-title">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Laboratoire IA</p>
+            <h2 id="google-title">Modèles IA et Weather Lab</h2>
+          </div>
+          <span class="experimental-badge">Expérimental</span>
+        </div>
+        <div class="google-grid">
+          <article>
+            <h3>GraphCast</h3>
+            <p id="graphcast-status">Vérification du flux opérationnel…</p>
+            <p class="model-smallprint">Architecture créée par Google DeepMind. Les runs affichés sont exécutés par NOAA/CIRA à partir des conditions initiales GFS.</p>
+          </article>
+          <article>
+            <h3>Pangu-Weather</h3>
+            <p id="pangu-status">Vérification du flux opérationnel…</p>
+            <p class="model-smallprint">Architecture de Huawei fondée sur un transformeur 3D. Cette version ne fournit pas de précipitations : elle sert surtout à comparer température, pression et circulation.</p>
+          </article>
+          <article>
+            <h3>WeatherNext 2</h3>
+            <p id="weathernext-status">Vérification de l’extraction WeatherNext 2…</p>
+            <p class="model-smallprint">Ensemble IA de 64 scénarios, à 0,25° et jusqu’à 15 jours. Lorsqu’un accès privé est connecté, il apparaît aussi parmi les boutons des prévisions d’ensemble avec ses trajectoires réelles. Les sorties temps réel ne sont jamais placées dans le site GitHub public.</p>
+            <div class="model-link-row"><a href="https://deepmind.google.com/science/weatherlab" target="_blank" rel="noreferrer">Ouvrir Weather Lab</a><a href="https://developers.google.com/weathernext/guides/access-forecast" target="_blank" rel="noreferrer">Accès aux données</a></div>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="ensemble-title">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">J1 à J15</p>
+            <h2 id="ensemble-title">Prévisions d’ensemble</h2>
+          </div>
+          <span class="legend-inline"><i class="dot p10"></i>P10 <i class="dot p50"></i>P50 <i class="dot p90"></i>P90</span>
+        </div>
+        <p class="section-intro">Chaque modèle génère plusieurs scénarios. Pour les maximales, P90 représente la branche chaude plausible ; pour les minimales, P10 représente la branche froide plausible.</p>
+        <div id="ensemble-loading" class="loading-line">Chargement des ensembles…</div>
+        <div id="ensemble-content" hidden>
+          <div id="ensemble-tabs" class="tab-list" role="tablist" aria-label="Modèles d’ensemble"></div>
+          <div id="ensemble-detail"></div>
+          <div class="ensemble-map-block" aria-labelledby="ensemble-map-title">
+            <div class="section-title-row compact-title-row">
+              <div>
+                <p class="eyebrow">ECMWF ENS · demain</p>
+                <h3 id="ensemble-map-title">Le scénario médian et le risque en France</h3>
+              </div>
+              <span class="season-label">Cartes probabilistes</span>
+            </div>
+            <p class="section-intro">La première carte montre la médiane P50. La seconde montre la part des scénarios qui franchissent le seuil saisonnier affiché.</p>
+            <div class="map-load-row">
+              <button id="ensemble-map-button" type="button">Afficher les cartes probabilistes</button>
+              <span>Cette grille plus lourde n’est calculée qu’à votre demande.</span>
+            </div>
+            <div id="ensemble-map-loading" class="loading-line" hidden></div>
+            <div id="ensemble-maps" class="france-maps ensemble-maps"></div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="long-title">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">J16 à J46</p>
+            <h2 id="long-title">Tendance par semaine</h2>
+          </div>
+        </div>
+        <p class="section-intro">À cette distance, une date précise serait trompeuse. Les valeurs sont donc agrégées par semaine, avec leur fourchette ensembleiste.</p>
+        <div id="long-loading" class="loading-line">Chargement de la tendance lointaine…</div>
+        <div id="long-content" hidden>
+          <div id="long-tabs" class="tab-list" role="tablist" aria-label="Modèles longue échéance"></div>
+          <div id="long-detail"></div>
+        </div>
+      </section>
+
+      <section class="complementary-analysis" aria-labelledby="complementary-title">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Laboratoire personnel</p>
+            <h2 id="complementary-title">Analyses complémentaires</h2>
+          </div>
+          <span class="season-label">Chargées à la demande</span>
+        </div>
+        <p class="section-intro">Ces diagnostics restent fermés au démarrage. Ouvrez uniquement celui dont vous avez besoin&nbsp;: les données supplémentaires ne sont interrogées qu’à ce moment-là.</p>
+        <div class="insight-panels">
+          <details id="ai-physics-panel" class="insight-panel">
+            <summary>
+              <span class="insight-summary-icon" aria-hidden="true">IA</span>
+              <span><strong>IA contre modèles physiques</strong><small>AIFS–IFS et AIGEFS–GEFS, déterministes et ensembles</small></span>
+            </summary>
+            <div id="ai-physics-content" class="insight-content"><p class="loading-line">Ouvrez ce volet après le chargement des ensembles.</p></div>
+          </details>
+
+          <details id="run-stability-panel" class="insight-panel">
+            <summary>
+              <span class="insight-summary-icon" aria-hidden="true">↻</span>
+              <span><strong>Stabilité depuis le run précédent</strong><small>Mesure du déplacement des températures prévues en 24 heures</small></span>
+            </summary>
+            <div id="run-stability-content" class="insight-content"><p class="loading-line">Les runs archivés seront chargés à l’ouverture.</p></div>
+          </details>
+
+          <details id="atmosphere-panel" class="insight-panel">
+            <summary>
+              <span class="insight-summary-icon" aria-hidden="true">↥</span>
+              <span><strong>Structure de l’atmosphère</strong><small>T850, géopotentiel 500 hPa, jet 300 hPa, pression et CAPE</small></span>
+            </summary>
+            <div id="atmosphere-content" class="insight-content"><p class="loading-line">Le profil IFS sera chargé à l’ouverture.</p></div>
+          </details>
+
+          <details id="extremes-panel" class="insight-panel">
+            <summary>
+              <span class="insight-summary-icon" aria-hidden="true">!</span>
+              <span><strong>Anomalies et extrêmes EFI / SOT</strong><small>Température et précipitations replacées dans la climatologie EC46</small></span>
+            </summary>
+            <div id="extremes-content" class="insight-content"><p class="loading-line">Les indices EC46 seront chargés à l’ouverture.</p></div>
+          </details>
+        </div>
+      </section>
+
+      <section class="learn-section" aria-labelledby="learn-title">
+        <div>
+          <p class="eyebrow">File de lecture personnelle</p>
+          <h2 id="learn-title">Vos repères scientifiques</h2>
+          <p class="section-intro">Un nouveau repère est ajouté avec le bulletin du jour. Ceux qui ne sont pas marqués comme lus restent en attente.</p>
+        </div>
+        <article id="learning-card"></article>
+      </section>
+
+      <section class="analysis-library" aria-labelledby="analysis-library-title">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Apprendre à lire les cartes</p>
+            <h2 id="analysis-library-title">La bibliothèque d’analyse météo</h2>
+          </div>
+          <span id="analysis-count" class="season-label">Parcours guidés</span>
+        </div>
+        <p class="section-intro">Une base personnelle de ressources à consulter : quoi regarder, comment l’interpréter et quel piège éviter.</p>
+        <div id="analysis-tip"></div>
+        <div id="analysis-filters" class="analysis-filters" role="group" aria-label="Filtrer les parcours d’analyse"></div>
+        <div id="analysis-guide-list" class="analysis-guide-list"></div>
+      </section>
+
+      <section class="method-section" aria-labelledby="method-title">
+        <h2 id="method-title">Sources et méthode</h2>
+        <p>Prévisions issues d’Open-Meteo, qui redistribue les modèles de Météo-France, ECMWF, NOAA, DWD et Environnement Canada. Les scores sont des indices de confiance relatifs calculés par cette application, pas des probabilités officielles. Une vigilance officielle reste prioritaire.</p>
+        <p class="source-links">
+          <a href="https://open-meteo.com/en/docs" target="_blank" rel="noreferrer">Données et modèles</a>
+          <a href="https://vigilance.meteofrance.fr/fr" target="_blank" rel="noreferrer">Vigilance Météo-France</a>
+        </p>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <span>Horizon météo</span>
+    <span>Les données restent sur votre appareil, hors requêtes météo.</span>
+  </footer>
+
+  <dialog id="confidence-dialog">
+    <form method="dialog">
+      <button class="dialog-close" value="close" aria-label="Fermer">×</button>
+      <h2>Un indice, pas une garantie</h2>
+      <p>L’indice combine l’accord sur les températures, l’accord sur la pluie, le nombre de modèles disponibles et l’échéance.</p>
+      <ul>
+        <li><strong>Élevée :</strong> les modèles décrivent une évolution proche.</li>
+        <li><strong>Moyenne :</strong> le signal général tient, mais les valeurs varient.</li>
+        <li><strong>Faible :</strong> plusieurs scénarios restent réellement ouverts.</li>
+      </ul>
+    </form>
+  </dialog>
+
+  <noscript>Cette application a besoin de JavaScript pour interroger les modèles météo.</noscript>
+  <script src="d3.min.js" defer></script>
+  <script src="data/ai-models-france.js?v=26" defer></script>
+  <script src="weathernext2-loader.js?v=27" defer></script>
+  <script src="app-bundle.js?v=26" defer></script>
+</body>
+</html>
