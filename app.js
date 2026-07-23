@@ -134,6 +134,7 @@ const LONG_MODELS = [
 
 const LEARNING_STORAGE_KEY = "horizon-meteo-learning-v1";
 const API_CACHE_PREFIX = "horizon-meteo-api-v2";
+const REFRESH_SCRIPT_ID = "horizon-ai-data-refresh";
 const HOUR = 60 * 60 * 1000;
 const SCIENCE_LESSONS = [
   { id: "multi-modeles", icon: "◎", title: "Pourquoi plusieurs modèles ?", text: "Chaque centre météo utilise sa propre dynamique, ses observations et ses paramétrisations. Lorsque IFS, GFS, ICON et Météo-France convergent sans partager exactement le même système, le signal gagne en robustesse. Leur désaccord n’est pas un défaut : il révèle une bifurcation encore ouverte." },
@@ -2326,6 +2327,84 @@ function setLoading(isLoading) {
   ["gps-button", "refresh-button"].forEach(id => { if (el(id)) el(id).disabled = isLoading; });
 }
 
+function clearWeatherApiCache() {
+  try {
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index);
+      if (key?.startsWith(API_CACHE_PREFIX)) localStorage.removeItem(key);
+    }
+  } catch {}
+}
+
+function loadFreshScript(source, id) {
+  return new Promise((resolve, reject) => {
+    document.getElementById(id)?.remove();
+    const script = document.createElement("script");
+    script.id = id;
+    const separator = source.includes("?") ? "&" : "?";
+    script.src = `${source}${separator}actualisation=${Date.now()}`;
+    script.async = true;
+    script.addEventListener("load", resolve, { once: true });
+    script.addEventListener("error", () => reject(new Error(`Impossible de recharger ${source}.`)), { once: true });
+    document.head.append(script);
+  });
+}
+
+function aiCycleLabel(cycle) {
+  const match = /^(\d{4})(\d{2})(\d{2})_(\d{2})$/.exec(cycle || "");
+  if (!match) return cycle || "inconnu";
+  const [, year, month, day, hour] = match;
+  const date = new Date(`${year}-${month}-${day}T${hour}:00:00Z`);
+  const label = new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    timeZone: "UTC"
+  }).format(date).replace(".", "");
+  return `${label} UTC`;
+}
+
+async function refreshApplicationData() {
+  const button = el("refresh-button");
+  const originalLabel = button.innerHTML;
+  button.disabled = true;
+  button.textContent = "Actualisation…";
+  setStatus("Recherche des données les plus récentes et vidage du cache météo…");
+  clearWeatherApiCache();
+
+  const aiRefresh = loadFreshScript("data/ai-models-france.js", REFRESH_SCRIPT_ID);
+  const weatherNextRefresh = typeof window.reloadWeatherNextData === "function"
+    ? window.reloadWeatherNextData()
+    : Promise.resolve({ available: false });
+  const [aiResult, weatherNextResult] = await Promise.allSettled([aiRefresh, weatherNextRefresh]);
+
+  if ("serviceWorker" in navigator && window.isSecureContext) {
+    try {
+      const registration = await navigator.serviceWorker.getRegistration();
+      await registration?.update();
+    } catch {}
+  }
+
+  if (state.location) await loadLocation({ ...state.location });
+
+  const cycle = aiCycleLabel(window.AI_WEATHER_GRID?.cycle);
+  const aiOk = aiResult.status === "fulfilled";
+  const privateAvailable = weatherNextResult.status === "fulfilled" && weatherNextResult.value?.available;
+  const details = [
+    aiOk ? `GraphCast/Pangu : cycle ${cycle}` : "GraphCast/Pangu : ancien fichier conservé",
+    privateAvailable ? "WeatherNext privé rechargé" : null
+  ].filter(Boolean).join(" · ");
+
+  if (!state.location) {
+    setStatus(`${details}. Choisissez un lieu pour créer le bulletin.`, !aiOk);
+  } else {
+    setStatus(`Données actualisées pour ${state.location.name} · ${details}.`, !aiOk);
+  }
+
+  button.disabled = false;
+  button.innerHTML = originalLabel;
+}
+
 async function loadLocation(location) {
   state.location = location;
   state.deterministic = [];
@@ -2477,7 +2556,14 @@ function bindEvents() {
     const query = el("city-input").value.trim();
     if (query) searchCity(query);
   });
-  el("refresh-button").addEventListener("click", () => state.location && loadLocation(state.location));
+  el("refresh-button").addEventListener("click", () => {
+    refreshApplicationData().catch(error => {
+      console.error(error);
+      setStatus(`Actualisation incomplète : ${error.message}`, true);
+      el("refresh-button").disabled = false;
+      el("refresh-button").innerHTML = '<span aria-hidden="true">↻</span> Actualiser les données';
+    });
+  });
   el("copy-button").addEventListener("click", copyNewsletter);
   el("mail-button").addEventListener("click", openMail);
   el("france-map-button").addEventListener("click", loadFranceMaps);
@@ -2496,7 +2582,7 @@ setStatus("Choisissez un lieu pour créer votre bulletin.");
 
 window.addEventListener("weathernext-ready", () => {
   renderGoogleStatus();
-  if (state.location) void loadEnsembleSections(state.location);
+  if (state.location && !el("refresh-button")?.disabled) void loadEnsembleSections(state.location);
 });
 
 if ("serviceWorker" in navigator && window.isSecureContext) {
